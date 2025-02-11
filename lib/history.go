@@ -1,4 +1,4 @@
-package main
+package lib
 
 import (
 	"bufio"
@@ -16,13 +16,13 @@ var (
 )
 
 type History struct {
-	Path string
+	Path  string
 	Files []ToBeRemoveFile
 }
 
 func NewHistory(path string, files []ToBeRemoveFile) *History {
 	return &History{
-		Path: path,
+		Path:  path,
 		Files: files,
 	}
 }
@@ -67,7 +67,7 @@ func (i *History) UpdateHistory(files []ToBeRemoveFile) error {
 	if err := i.saveHistory(files); err != nil {
 		return errors.Wrap(err, "save history")
 	}
-	
+
 	return nil
 }
 
@@ -108,7 +108,7 @@ func (i *History) syncHistory() error {
 			}
 			return errors.Wrap(err, "failed to check file existence")
 		}
-		
+
 		// if the file exists, keep it by moving it to the front
 		i.Files[validCount] = file
 		validCount++
@@ -116,7 +116,7 @@ func (i *History) syncHistory() error {
 
 	// keep only the valid entries
 	i.Files = i.Files[:validCount]
-		
+
 	return nil
 }
 

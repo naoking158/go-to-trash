@@ -1,4 +1,4 @@
-package main_test
+package lib_test
 
 import (
 	"bufio"
@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/naoking158/go-to-trash/lib"
 	"github.com/stretchr/testify/assert"
-	"github.com/naoking158/go-to-trash/main"
 )
 
 // helper: 指定パスのファイルが存在しているかを作成しておく（空ファイル）
@@ -21,16 +21,16 @@ func createDummyFile(t *testing.T, path string) {
 }
 
 // helper: 履歴ファイルの各行をパースしてエントリリストを返す
-func readHistoryFile(t *testing.T, path string) []main.ToBeRemoveFile {
+func readHistoryFile(t *testing.T, path string) []lib.ToBeRemoveFile {
 	t.Helper()
 	f, err := os.Open(path)
 	assert.NoError(t, err)
 	defer f.Close()
 
-	var entries []main.ToBeRemoveFile
+	var entries []lib.ToBeRemoveFile
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		var entry main.ToBeRemoveFile
+		var entry lib.ToBeRemoveFile
 		err := json.Unmarshal(scanner.Bytes(), &entry)
 		if err == nil {
 			entries = append(entries, entry)
@@ -48,11 +48,11 @@ func TestUpdateHistory_NewFile(t *testing.T) {
 	// 履歴ファイルはまだ存在しない
 
 	// 新規エントリを2件作成
-	entry1 := main.ToBeRemoveFile{
+	entry1 := lib.ToBeRemoveFile{
 		From: "/source/path/file1.txt",
 		To:   filepath.Join(trashDir, "trash1.txt"),
 	}
-	entry2 := main.ToBeRemoveFile{
+	entry2 := lib.ToBeRemoveFile{
 		From: "/source/path/file2.txt",
 		To:   filepath.Join(trashDir, "trash2.txt"),
 	}
@@ -60,8 +60,8 @@ func TestUpdateHistory_NewFile(t *testing.T) {
 	createDummyFile(t, entry1.To)
 	createDummyFile(t, entry2.To)
 
-	hist := main.NewHistory(historyPath, nil)
-	err := hist.UpdateHistory([]main.ToBeRemoveFile{entry1, entry2})
+	hist := lib.NewHistory(historyPath, nil)
+	err := hist.UpdateHistory([]lib.ToBeRemoveFile{entry1, entry2})
 	assert.NoError(t, err)
 
 	// 履歴ファイルが作成され、2件のエントリが書き込まれていることを確認
@@ -77,7 +77,7 @@ func TestUpdateHistory_Append(t *testing.T) {
 	historyPath := filepath.Join(trashDir, mainFileName())
 
 	// 初期エントリを1件作成
-	initialEntry := main.ToBeRemoveFile{
+	initialEntry := lib.ToBeRemoveFile{
 		From: "/source/path/initial.txt",
 		To:   filepath.Join(trashDir, "trash_initial.txt"),
 	}
@@ -98,20 +98,20 @@ func TestUpdateHistory_Append(t *testing.T) {
 	}
 
 	// LoadHistory を使って既存の履歴を読み込む
-	hist, err := main.LoadHistory(trashDir)
+	hist, err := lib.LoadHistory(trashDir)
 	assert.NoError(t, err)
 	// 初期履歴が読み込まれていることを確認
 	assert.Len(t, hist.Files, 1)
 
 	// 新規エントリを作成
-	newEntry := main.ToBeRemoveFile{
+	newEntry := lib.ToBeRemoveFile{
 		From: "/source/path/new.txt",
 		To:   filepath.Join(trashDir, "trash_new.txt"),
 	}
 	createDummyFile(t, newEntry.To)
 
 	// UpdateHistory で新規エントリを追記
-	err = hist.UpdateHistory([]main.ToBeRemoveFile{newEntry})
+	err = hist.UpdateHistory([]lib.ToBeRemoveFile{newEntry})
 	assert.NoError(t, err)
 
 	// 履歴ファイルの中身を確認（初期エントリ + 新規エントリの合計2件）
@@ -127,11 +127,11 @@ func TestUpdateHistory_Sync(t *testing.T) {
 	historyPath := filepath.Join(trashDir, mainFileName())
 
 	// 有効なエントリと無効なエントリを用意する
-	validEntry := main.ToBeRemoveFile{
+	validEntry := lib.ToBeRemoveFile{
 		From: "/source/path/valid.txt",
 		To:   filepath.Join(trashDir, "trash_valid.txt"),
 	}
-	invalidEntry := main.ToBeRemoveFile{
+	invalidEntry := lib.ToBeRemoveFile{
 		From: "/source/path/invalid.txt",
 		To:   filepath.Join(trashDir, "trash_invalid.txt"),
 	}
@@ -143,7 +143,7 @@ func TestUpdateHistory_Sync(t *testing.T) {
 		f, err := os.OpenFile(historyPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		assert.NoError(t, err)
 		writer := bufio.NewWriter(f)
-		for _, entry := range []main.ToBeRemoveFile{validEntry, invalidEntry} {
+		for _, entry := range []lib.ToBeRemoveFile{validEntry, invalidEntry} {
 			data, err := json.Marshal(entry)
 			assert.NoError(t, err)
 			_, err = writer.Write(append(data, '\n'))
@@ -155,12 +155,12 @@ func TestUpdateHistory_Sync(t *testing.T) {
 	}
 
 	// LoadHistory により履歴を読み込む
-	hist, err := main.LoadHistory(trashDir)
+	hist, err := lib.LoadHistory(trashDir)
 	assert.NoError(t, err)
 	assert.Len(t, hist.Files, 2)
 
 	// UpdateHistory に新規エントリは渡さず、syncHistory の効果を確認する
-	err = hist.UpdateHistory([]main.ToBeRemoveFile{})
+	err = hist.UpdateHistory([]lib.ToBeRemoveFile{})
 	assert.NoError(t, err)
 	// UpdateHistory 内で syncHistory が実行されるので、invalidEntry が除かれる
 	assert.Len(t, hist.Files, 1)
@@ -174,7 +174,7 @@ func TestUpdateHistory_NoNewFiles(t *testing.T) {
 	historyPath := filepath.Join(trashDir, mainFileName())
 
 	// 初期エントリを1件作成
-	entry := main.ToBeRemoveFile{
+	entry := lib.ToBeRemoveFile{
 		From: "/source/path/entry.txt",
 		To:   filepath.Join(trashDir, "trash_entry.txt"),
 	}
@@ -194,10 +194,10 @@ func TestUpdateHistory_NoNewFiles(t *testing.T) {
 		f.Close()
 	}
 
-	hist, err := main.LoadHistory(trashDir)
+	hist, err := lib.LoadHistory(trashDir)
 	assert.NoError(t, err)
 	// UpdateHistory に空のスライスを渡す
-	err = hist.UpdateHistory([]main.ToBeRemoveFile{})
+	err = hist.UpdateHistory([]lib.ToBeRemoveFile{})
 	assert.NoError(t, err)
 
 	// 履歴ファイルの内容は変更されず、1件のエントリが保持されているはず

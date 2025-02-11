@@ -3,10 +3,12 @@ package main
 import (
 	"log"
 	"os"
+
+	"github.com/naoking158/go-to-trash/lib"
 )
 
 func main() {
-	config, err := NewConfig()
+	config, err := lib.NewConfig()
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/cockroachdb/errors"
+	"github.com/naoking158/go-to-trash/lib"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,7 +23,7 @@ type CLI struct {
 
 func (cli *CLI) Run(args []string) int {
 	var (
-		dryrun bool
+		dryrun  bool
 		verbose bool
 	)
 
@@ -57,7 +58,7 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	// TODO: restore previous
-	
+
 	// TODO: save file info to inventory.json
 
 	// TODO: restore file from inventory.json
@@ -66,24 +67,24 @@ func (cli *CLI) Run(args []string) int {
 }
 
 func (cli CLI) remove(paths []string, dryrun bool) error {
-	files := make([]ToBeRemoveFile, len(paths))
+	files := make([]lib.ToBeRemoveFile, len(paths))
 	invalidPaths := make([]string, 0)
 
 	var eg errgroup.Group
 
 	for i, path := range paths {
 		eg.Go(func() error {
-			f, err := NewFile(path)
+			f, err := lib.NewFile(path)
 			if err != nil {
-				if errors.Is(err, ErrFileNotFound) {
+				if errors.Is(err, lib.ErrFileNotFound) {
 					fmt.Fprintf(cli.Stderr, "file not found: %v\n", path)
 				}
-				
+
 				invalidPaths = append(invalidPaths, path)
 				return errors.Wrap(err, "new file")
 			}
 
-			toBeRemoveFile := NewToBeRemoveFile(*f, cli.TrashDir)
+			toBeRemoveFile := lib.NewToBeRemoveFile(*f, cli.TrashDir)
 
 			if dryrun {
 				fmt.Fprintf(cli.Stdout, "[DRYRUN] move `%v` to `%v`\n", toBeRemoveFile.From, toBeRemoveFile.To)
