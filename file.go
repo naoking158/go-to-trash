@@ -1,11 +1,10 @@
-package domain
+package main
 
 import (
 	"os"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/naoking158/go-to-trash/util"
 )
 
 type FileError error
@@ -22,7 +21,7 @@ type File struct {
 }
 
 func NewFile(path string) (*File, error) {
-	normPath, err := util.NormalizePath(path)
+	normPath, err := NormalizePath(path)
 	if err != nil {
 		return nil, errors.Wrapf(errors.Join(err, ErrFileInternal), "normalize path: %v", path)
 	}

@@ -1,4 +1,4 @@
-package domain
+package main
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 )
 
 type ToBeRemoveFile struct {
-	From string
-	To   string
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 func NewToBeRemoveFile(file File, trashDir string) *ToBeRemoveFile {
