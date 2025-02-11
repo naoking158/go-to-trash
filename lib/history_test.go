@@ -44,7 +44,7 @@ func readHistoryFile(t *testing.T, path string) []lib.ToBeRemoveFile {
 func TestUpdateHistory_NewFile(t *testing.T) {
 	// t.TempDir() で一時ディレクトリを取得
 	trashDir := t.TempDir()
-	historyPath := filepath.Join(trashDir, mainFileName()) // historyFileNameは "go-to-trash-history.json"
+	historyPath := filepath.Join(trashDir, lib.HistoryFileName) // historyFileNameは "go-to-trash-history.json"
 	// 履歴ファイルはまだ存在しない
 
 	// 新規エントリを2件作成
@@ -74,7 +74,7 @@ func TestUpdateHistory_NewFile(t *testing.T) {
 // Test case 2: 既存の履歴ファイルに対して新規エントリを追記する
 func TestUpdateHistory_Append(t *testing.T) {
 	trashDir := t.TempDir()
-	historyPath := filepath.Join(trashDir, mainFileName())
+	historyPath := filepath.Join(trashDir, lib.HistoryFileName)
 
 	// 初期エントリを1件作成
 	initialEntry := lib.ToBeRemoveFile{
@@ -124,7 +124,7 @@ func TestUpdateHistory_Append(t *testing.T) {
 // Test case 3: syncHistory により、存在しないファイルに対応する履歴エントリが削除される
 func TestUpdateHistory_Sync(t *testing.T) {
 	trashDir := t.TempDir()
-	historyPath := filepath.Join(trashDir, mainFileName())
+	historyPath := filepath.Join(trashDir, lib.HistoryFileName)
 
 	// 有効なエントリと無効なエントリを用意する
 	validEntry := lib.ToBeRemoveFile{
@@ -171,7 +171,7 @@ func TestUpdateHistory_Sync(t *testing.T) {
 // Test case 4: 新規エントリが空の場合、エラーなく処理が終了する
 func TestUpdateHistory_NoNewFiles(t *testing.T) {
 	trashDir := t.TempDir()
-	historyPath := filepath.Join(trashDir, mainFileName())
+	historyPath := filepath.Join(trashDir, lib.HistoryFileName)
 
 	// 初期エントリを1件作成
 	entry := lib.ToBeRemoveFile{
@@ -204,10 +204,4 @@ func TestUpdateHistory_NoNewFiles(t *testing.T) {
 	entries := readHistoryFile(t, historyPath)
 	assert.Len(t, entries, 1)
 	assert.Equal(t, entry.From, entries[0].From)
-}
-
-// main パッケージ内の定数 historyFileName に対応するファイル名を返すヘルパー
-func mainFileName() string {
-	// main.historyFileName は unexported のため、同じ値をここで定義
-	return "go-to-trash-history.json"
 }

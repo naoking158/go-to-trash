@@ -50,23 +50,30 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	paths := flags.Args()
-	err := cli.remove(paths, dryrun)
+	removedFiles, err := cli.remove(paths, dryrun)
 	if err != nil {
 		log.Println(err)
 		fmt.Fprintf(cli.Stderr, "failed to remove: %v\n", err)
 		return 1
 	}
 
-	// TODO: restore previous
+	history, err := lib.LoadHistory(cli.TrashDir)
+	if err != nil {
+		log.Println(err)
+		fmt.Fprintf(cli.Stderr, "failed to load history: %v\n", err)
+		return 1
+	}
 
-	// TODO: save file info to inventory.json
-
-	// TODO: restore file from inventory.json
+	if err := history.UpdateHistory(removedFiles); err != nil {
+		log.Println(err)
+		fmt.Fprintf(cli.Stderr, "failed to update history: %v\n", err)
+		return 1
+	}
 
 	return 0
 }
 
-func (cli CLI) remove(paths []string, dryrun bool) error {
+func (cli CLI) remove(paths []string, dryrun bool) ([]lib.ToBeRemoveFile, error) {
 	files := make([]lib.ToBeRemoveFile, len(paths))
 	invalidPaths := make([]string, 0)
 
@@ -111,8 +118,8 @@ func (cli CLI) remove(paths []string, dryrun bool) error {
 	}
 
 	if err := eg.Wait(); err != nil {
-		return errors.Wrapf(err, "failed to remove files: %v", invalidPaths)
+		return nil, errors.Wrapf(err, "failed to remove files: %v", invalidPaths)
 	}
 
-	return nil
+	return files, nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-const historyFileName = "go-to-trash-history.json"
+const HistoryFileName = "go-to-trash-history.json"
 
 var (
 	ErrHistoryInvalid = errors.New("history is invalid")
@@ -29,7 +29,7 @@ func NewHistory(path string, files []ToBeRemoveFile) *History {
 
 func LoadHistory(trashDir string) (*History, error) {
 	// history file path
-	path := filepath.Join(trashDir, historyFileName)
+	path := filepath.Join(trashDir, HistoryFileName)
 
 	f, err := os.Open(path)
 	if err != nil {
