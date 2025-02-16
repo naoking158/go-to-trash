@@ -57,51 +57,42 @@ func LoadHistory(trashDir string) (*History, error) {
 	return NewHistory(path, files), nil
 }
 
-func (i *History) UpdateHistory(files []ToBeRemoveFile) error {
-	// sync
-	if err := i.syncHistory(); err != nil {
-		return errors.Wrap(err, "sync history")
-	}
-
+func (h *History) UpdateHistory(files []ToBeRemoveFile) error {
 	// save
-	if err := i.saveHistory(files); err != nil {
+	if err := h.saveHistory(files); err != nil {
 		return errors.Wrap(err, "save history")
 	}
 
 	return nil
 }
 
-func (i *History) saveHistory(files []ToBeRemoveFile) error {
-	// sync history to remove non-existing records
-	if err := i.syncHistory(); err != nil {
-		return errors.Wrap(err, "failed to sync history")
-	}
-
+func (h *History) saveHistory(files []ToBeRemoveFile) error {
 	if len(files) == 0 {
 		return nil
 	}
 
 	// check if the history file exists
-	_, err := os.Stat(i.Path)
+	_, err := os.Stat(h.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// if the file does not exist, create and write all history
-			return writeEntriesToHistory(i.Path, append(i.Files, files...))
+			return writeEntriesToHistory(h.Path, files)
 		}
 		return errors.Wrap(err, "failed to check history file existence")
 	}
 
 	// if the file exists, append only new entries
-	return appendEntriesToHistory(i.Path, files)
+	return appendEntriesToHistory(h.Path, files)
 }
 
-func (i *History) syncHistory() error {
-	// index to track the number of valid entries
-	validCount := 0
+func (h *History) SyncHistory() error {
+	uniqHist := UniqByKey(h.Files, func(f ToBeRemoveFile) string { return f.To })
+	validFiles := make([]ToBeRemoveFile, 0, len(uniqHist))
 
 	// scan through the slice and remove unnecessary elements
-	for _, file := range i.Files {
-		if _, err := os.Stat(file.To); err != nil {
+	for _, file := range uniqHist {
+		_, err := os.Stat(file.To)
+		if err != nil {
 			if os.IsNotExist(err) {
 				// if the file does not exist, skip it (remove from history)
 				continue
@@ -110,14 +101,16 @@ func (i *History) syncHistory() error {
 		}
 
 		// if the file exists, keep it by moving it to the front
-		i.Files[validCount] = file
-		validCount++
+		validFiles = append(validFiles, file)
 	}
 
-	// keep only the valid entries
-	i.Files = i.Files[:validCount]
+	if len(h.Files) == len(validFiles) {
+		return nil
+	}
 
-	return nil
+	// update history files
+	h.Files = validFiles
+	return writeEntriesToHistory(h.Path, h.Files)
 }
 
 func writeEntriesToHistory(path string, files []ToBeRemoveFile) error {
@@ -142,6 +135,8 @@ func writeEntriesToHistory(path string, files []ToBeRemoveFile) error {
 }
 
 func appendEntriesToHistory(path string, files []ToBeRemoveFile) error {
+	uniqFiles := UniqByKey(files, func(file ToBeRemoveFile) string { return file.To })
+
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to open history file for appending")
@@ -149,7 +144,7 @@ func appendEntriesToHistory(path string, files []ToBeRemoveFile) error {
 	defer f.Close()
 
 	writer := bufio.NewWriter(f)
-	for _, file := range files {
+	for _, file := range uniqFiles {
 		data, err := json.Marshal(file)
 		if err != nil {
 			return errors.Wrap(err, "failed to marshal file entry")

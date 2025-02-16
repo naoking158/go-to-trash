@@ -50,17 +50,23 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	paths := flags.Args()
-	removedFiles, err := cli.remove(paths, dryrun)
-	if err != nil {
-		log.Println(err)
-		fmt.Fprintf(cli.Stderr, "failed to remove: %v\n", err)
-		return 1
-	}
 
 	history, err := lib.LoadHistory(cli.TrashDir)
 	if err != nil {
 		log.Println(err)
 		fmt.Fprintf(cli.Stderr, "failed to load history: %v\n", err)
+		return 1
+	}
+	if err := history.SyncHistory(); err != nil {
+		log.Println(err)
+		fmt.Fprintf(cli.Stderr, "failed to sync history: %v\n", err)
+		return 1
+	}
+
+	removedFiles, err := cli.remove(paths, dryrun)
+	if err != nil {
+		log.Println(err)
+		fmt.Fprintf(cli.Stderr, "failed to remove: %v\n", err)
 		return 1
 	}
 
