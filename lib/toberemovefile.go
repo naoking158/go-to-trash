@@ -7,12 +7,13 @@ import (
 	"strings"
 )
 
-type ToBeRemoveFile struct {
+type RemovedFile struct {
 	From string `json:"from"`
 	To   string `json:"to"`
+	RemovedAt string `json:"removed_at"`
 }
 
-func NewToBeRemoveFile(file File, trashDir string) *ToBeRemoveFile {
+func NewToBeRemoveFile(file File, trashDir string) *RemovedFile {
 	to := filepath.Join(trashDir, file.Name)
 
 	// check file duplication
@@ -30,8 +31,9 @@ func NewToBeRemoveFile(file File, trashDir string) *ToBeRemoveFile {
 		)
 	}
 
-	return &ToBeRemoveFile{
+	return &RemovedFile{
 		From: file.Path,
 		To:   to,
+		RemovedAt: file.Timestamp.Format("2006-01-02 15:04:05"),
 	}
 }

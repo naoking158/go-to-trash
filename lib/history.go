@@ -17,10 +17,10 @@ var (
 
 type History struct {
 	Path  string
-	Files []ToBeRemoveFile
+	Files []RemovedFile
 }
 
-func NewHistory(path string, files []ToBeRemoveFile) *History {
+func NewHistory(path string, files []RemovedFile) *History {
 	return &History{
 		Path:  path,
 		Files: files,
@@ -38,10 +38,10 @@ func LoadHistory(trashDir string) (*History, error) {
 	}
 	defer f.Close()
 
-	var files []ToBeRemoveFile
+	var files []RemovedFile
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		var entry ToBeRemoveFile
+		var entry RemovedFile
 		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
 			// skip invalid lines
 			continue
@@ -57,7 +57,7 @@ func LoadHistory(trashDir string) (*History, error) {
 	return NewHistory(path, files), nil
 }
 
-func (h *History) UpdateHistory(files []ToBeRemoveFile) error {
+func (h *History) UpdateHistory(files []RemovedFile) error {
 	// save
 	if err := h.saveHistory(files); err != nil {
 		return errors.Wrap(err, "save history")
@@ -66,7 +66,7 @@ func (h *History) UpdateHistory(files []ToBeRemoveFile) error {
 	return nil
 }
 
-func (h *History) saveHistory(files []ToBeRemoveFile) error {
+func (h *History) saveHistory(files []RemovedFile) error {
 	if len(files) == 0 {
 		return nil
 	}
@@ -86,8 +86,8 @@ func (h *History) saveHistory(files []ToBeRemoveFile) error {
 }
 
 func (h *History) SyncHistory() error {
-	uniqHist := UniqByKey(h.Files, func(f ToBeRemoveFile) string { return f.To })
-	validFiles := make([]ToBeRemoveFile, 0, len(uniqHist))
+	uniqHist := UniqByKey(h.Files, func(f RemovedFile) string { return f.To })
+	validFiles := make([]RemovedFile, 0, len(uniqHist))
 
 	// scan through the slice and remove unnecessary elements
 	for _, file := range uniqHist {
@@ -113,7 +113,7 @@ func (h *History) SyncHistory() error {
 	return writeEntriesToHistory(h.Path, h.Files)
 }
 
-func writeEntriesToHistory(path string, files []ToBeRemoveFile) error {
+func writeEntriesToHistory(path string, files []RemovedFile) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return errors.Wrap(err, "failed to create history file")
@@ -134,8 +134,8 @@ func writeEntriesToHistory(path string, files []ToBeRemoveFile) error {
 	return writer.Flush()
 }
 
-func appendEntriesToHistory(path string, files []ToBeRemoveFile) error {
-	uniqFiles := UniqByKey(files, func(file ToBeRemoveFile) string { return file.To })
+func appendEntriesToHistory(path string, files []RemovedFile) error {
+	uniqFiles := UniqByKey(files, func(file RemovedFile) string { return file.To })
 
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {

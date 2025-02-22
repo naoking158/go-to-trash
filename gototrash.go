@@ -79,8 +79,8 @@ func (cli *CLI) Run(args []string) int {
 	return 0
 }
 
-func (cli CLI) remove(paths []string, dryrun bool) ([]lib.ToBeRemoveFile, error) {
-	files := make([]lib.ToBeRemoveFile, len(paths))
+func (cli CLI) remove(paths []string, dryrun bool) ([]lib.RemovedFile, error) {
+	files := make([]lib.RemovedFile, len(paths))
 	invalidPaths := make([]string, 0)
 
 	var eg errgroup.Group
