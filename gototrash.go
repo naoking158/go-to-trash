@@ -25,6 +25,7 @@ func (cli *CLI) Run(args []string) int {
 	var (
 		dryrun  bool
 		verbose bool
+		restore bool
 	)
 
 	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
@@ -35,6 +36,8 @@ func (cli *CLI) Run(args []string) int {
 
 	flags.BoolVar(&verbose, "verbose", false, "show verbose output")
 	flags.BoolVar(&verbose, "v", false, "alias for --verbose")
+
+	flags.BoolVar(&restore, "restore", false, "restore files from trash")
 
 	// Parse flags
 	if err := flags.Parse(args[1:]); err != nil {
@@ -61,6 +64,16 @@ func (cli *CLI) Run(args []string) int {
 		log.Println(err)
 		fmt.Fprintf(cli.Stderr, "failed to sync history: %v\n", err)
 		return 1
+	}
+
+	if restore {
+		if err := lib.Restore(history.Files); err != nil {
+			log.Println(err)
+			fmt.Fprintf(cli.Stderr, "there's been an error: %v", err)
+			return 1
+		}
+
+		return 0
 	}
 
 	removedFiles, err := cli.remove(paths, dryrun)
