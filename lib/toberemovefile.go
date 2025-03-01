@@ -8,8 +8,8 @@ import (
 )
 
 type RemovedFile struct {
-	From string `json:"from"`
-	To   string `json:"to"`
+	From      string `json:"from"`
+	To        string `json:"to"`
 	RemovedAt string `json:"removed_at"`
 }
 
@@ -32,8 +32,8 @@ func NewToBeRemoveFile(file File, trashDir string) *RemovedFile {
 	}
 
 	return &RemovedFile{
-		From: file.Path,
-		To:   to,
+		From:      file.Path,
+		To:        to,
 		RemovedAt: file.Timestamp.Format("2006-01-02 15:04:05"),
 	}
 }

@@ -1,24 +1,43 @@
 package lib
 
 import (
-	"fmt"
-	"strings"
-
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
+
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("240"))
 
 var _ tea.Model = (*model)(nil)
 
 type model struct {
-	files []RemovedFile
-	cursor int
-	selected map[int]struct{}
+	table table.Model
+}
+
+var columns = []table.Column{
+	{Title: "Mark", Width: 2},
+	{Title: "Path in Trash", Width: 10},
+	{Title: "Path in Orig.", Width: 10},
+	{Title: "RemovedAt.", Width: 10},
 }
 
 func newModel(files []RemovedFile) model {
+	rows := make([]table.Row, len(files))
+	for i, f := range files {
+		rows[i] = []string{"", f.To, f.From, f.RemovedAt}
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(7),
+	)
+
 	return model{
-		files: files,
-		selected: make(map[int]struct{}),
+		table: t,
 	}
 }
 
@@ -36,52 +55,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		case "ctrl+p", "k", "up":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-
-		case "ctrl+n", "j", "down":
-			if m.cursor < len(m.files) - 1 {
-				m.cursor++
-			}
-
 		case "ctrl+m", "ctrl+j", "enter", " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
-			}
+			return m.updateRow()
 		}
 	}
 
+	var cmd tea.Cmd
+	m.table, cmd = m.table.Update(msg)
+	return m, cmd
+}
+
+func (m model) updateRow() (tea.Model, tea.Cmd) {
+	// toggle mark of selected raw
+	r := m.table.SelectedRow()
+	switch r[0] {
+	case "":
+		r[0] = "x"
+	default:
+		r[0] = ""
+	}
+
+	rows := m.table.Rows()
+	rows[m.table.Cursor()] = r
+	m.table.SetRows(rows)
 	return m, nil
 }
 
 func (m model) View() string {
-	var s strings.Builder
-
-	s.WriteString("Select files you want to restore\n\n")
-
-	for i, file := range m.files {
-
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-
-		checked := " "
-		if _, ok := m.selected[i]; ok {
-			checked = "x"
-		}
-
-		s.WriteString(fmt.Sprintf("%s [%s] from= %s, to= %s, removedAt: %s\n", cursor, checked, file.From, file.To, file.RemovedAt))
-	}
-
-	s.WriteString("\nPress q to quite.\n")
-
-	return s.String()
+	return baseStyle.Render(m.table.View()) + "\n"
 }
 
 func Restore(files []RemovedFile) error {

@@ -3,7 +3,9 @@ module github.com/naoking158/go-to-trash
 go 1.23.4
 
 require (
+	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/bubbletea v1.3.3
+	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/cockroachdb/errors v1.11.3
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/sync v0.11.0
@@ -11,7 +13,6 @@ require (
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/charmbracelet/lipgloss v1.0.0 // indirect
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
