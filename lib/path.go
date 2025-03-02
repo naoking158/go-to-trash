@@ -18,6 +18,14 @@ func ExpandTilde(path string) string {
 	return path
 }
 
+func MapHomeToTilde(path string) string {
+	home := Home()
+	if strings.HasPrefix(path, home) {
+		return strings.Replace(path, home, "~", 1)
+	}
+	return path
+}
+
 func Home() string {
 	// for Unix
 	home := os.Getenv("HOME")
