@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"slices"
+	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,8 +16,9 @@ var baseStyle = lipgloss.NewStyle().
 var _ tea.Model = (*model)(nil)
 
 type model struct {
-	table table.Model
-	selected map[string]struct{}
+	table      table.Model
+	pathToFile map[string]RemovedFile
+	selected   map[string]RemovedFile
 }
 
 const (
@@ -29,10 +29,10 @@ const (
 )
 
 const (
-	ColBaseWidthForMark = 4
+	ColBaseWidthForMark      = 4
 	ColBaseWidthForRemovedAt = 20
-	ColBaseWidthForPath = 20
-	TableBorderWidth = 6
+	ColBaseWidthForPath      = 20
+	TableBorderWidth         = 6
 )
 
 var columns = []table.Column{
@@ -42,23 +42,11 @@ var columns = []table.Column{
 	{Title: ColTitleRemovedAt, Width: ColBaseWidthForRemovedAt},
 }
 
-func newModel(files []RemovedFile) model {
-	slices.SortFunc(files, func(a RemovedFile, b RemovedFile) int {
-		aTime, _ := time.Parse(time.DateTime, a.RemovedAt)
-		bTime, _ := time.Parse(time.DateTime, b.RemovedAt)
-
-		if aTime.Before(bTime) {
-			return -1
-		} else if aTime.After(bTime) {
-			return 1
-		} else {
-			return 0
-		}
-	})
+func newModel(files RemovedFiles) model {
+	files = files.Sorted()
 
 	rows := make([]table.Row, len(files))
 	for i, f := range files {
-		// rows[i] = []string{"", MapHomeToTilde(f.From), f.RemovedAt}
 		rows[i] = []string{"", MapHomeToTilde(f.To), MapHomeToTilde(f.From), MapHomeToTilde(f.RemovedAt)}
 	}
 
@@ -69,9 +57,16 @@ func newModel(files []RemovedFile) model {
 		table.WithHeight(7),
 	)
 
+	pathToFile := make(map[string]RemovedFile, len(files))
+	for _, f := range files {
+		// key is unique path in trash
+		pathToFile[MapHomeToTilde(f.To)] = f
+	}
+
 	return model{
-		table: t,
-		selected: make(map[string]struct{}),
+		table:      t,
+		pathToFile: pathToFile,
+		selected:   make(map[string]RemovedFile),
 	}
 }
 
@@ -88,11 +83,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// handle key input
 	case tea.KeyMsg:
-		// quit if no history
-		if len(m.table.Rows()) == 0 {
-			return m, tea.Quit
-		}
-
 		// execute command
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -140,11 +130,12 @@ func (m model) updateColumnWidths(availableWidth int) (tea.Model, tea.Cmd) {
 
 func (m model) update() (tea.Model, tea.Cmd) {
 	r := m.table.SelectedRow()
-	path := r[1]
-	if _, ok := m.selected[path]; ok {
-		delete(m.selected, path)
+	pathInTrash := r[1]
+	if _, ok := m.selected[pathInTrash]; ok {
+		delete(m.selected, pathInTrash)
 	} else {
-		m.selected[path] = struct{}{}
+		f := m.pathToFile[pathInTrash]
+		m.selected[pathInTrash] = f
 	}
 
 	return m.updateRow()
@@ -167,23 +158,36 @@ func (m model) updateRow() (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if len(m.table.Rows()) == 0 {
-		return "no history\nType any button to quit.\n"
-	}
-
 	var b strings.Builder
 	b.WriteString(baseStyle.Render(m.table.View()) + "\n\n")
 
+	if len(m.selected) == 0 {
+		return b.String()
+	}
+
+	selected := make(RemovedFiles, 0, len(m.selected))
+	for _, v := range m.selected {
+		selected = append(selected, v)
+	}
+	selected = selected.Sorted()
+
 	b.WriteString("Selected files:\n")
 
-	for path := range m.selected {
-		b.WriteString(path + "\n")
+	for i, f := range selected {
+		b.WriteString(
+			fmt.Sprintf("%v. %v → %v\n", i, f.To, f.From),
+		)
 	}
 
 	return b.String()
 }
 
 func Restore(files []RemovedFile) error {
+	if len(files) == 0 {
+		fmt.Println("quit due to no history")
+		return nil
+	}
+
 	p := tea.NewProgram(newModel(files))
 	if _, err := p.Run(); err != nil {
 		return err

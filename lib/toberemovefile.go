@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"time"
 )
 
 type RemovedFile struct {
@@ -36,4 +38,22 @@ func NewToBeRemoveFile(file File, trashDir string) *RemovedFile {
 		To:        to,
 		RemovedAt: file.Timestamp.Format("2006-01-02 15:04:05"),
 	}
+}
+
+type RemovedFiles []RemovedFile
+
+func (files RemovedFiles) Sorted() RemovedFiles {
+	slices.SortFunc(files, func(a RemovedFile, b RemovedFile) int {
+		aTime, _ := time.Parse(time.DateTime, a.RemovedAt)
+		bTime, _ := time.Parse(time.DateTime, b.RemovedAt)
+
+		if aTime.Before(bTime) {
+			return -1
+		} else if aTime.After(bTime) {
+			return 1
+		} else {
+			return 0
+		}
+	})
+	return files
 }
