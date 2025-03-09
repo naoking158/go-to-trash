@@ -1,6 +1,10 @@
 package lib
 
 import (
+	"slices"
+	"strings"
+	"time"
+
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,6 +18,7 @@ var _ tea.Model = (*model)(nil)
 
 type model struct {
 	table table.Model
+	selected map[string]struct{}
 }
 
 const (
@@ -38,9 +43,23 @@ var columns = []table.Column{
 }
 
 func newModel(files []RemovedFile) model {
+	slices.SortFunc(files, func(a RemovedFile, b RemovedFile) int {
+		aTime, _ := time.Parse(time.DateTime, a.RemovedAt)
+		bTime, _ := time.Parse(time.DateTime, b.RemovedAt)
+
+		if aTime.Before(bTime) {
+			return -1
+		} else if aTime.After(bTime) {
+			return 1
+		} else {
+			return 0
+		}
+	})
+
 	rows := make([]table.Row, len(files))
 	for i, f := range files {
-		rows[i] = []string{"", MapHomeToTilde(f.To), MapHomeToTilde(f.From), f.RemovedAt}
+		// rows[i] = []string{"", MapHomeToTilde(f.From), f.RemovedAt}
+		rows[i] = []string{"", MapHomeToTilde(f.To), MapHomeToTilde(f.From), MapHomeToTilde(f.RemovedAt)}
 	}
 
 	t := table.New(
@@ -52,6 +71,7 @@ func newModel(files []RemovedFile) model {
 
 	return model{
 		table: t,
+		selected: make(map[string]struct{}),
 	}
 }
 
@@ -61,24 +81,28 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
+	// resize table width
 	case tea.WindowSizeMsg:
-		// availableWidth := msg.Width - 30
 		availableWidth := msg.Width - (TableBorderWidth * 2)
 		return m.updateColumnWidths(availableWidth)
 
+	// handle key input
 	case tea.KeyMsg:
+		// quit if no history
+		if len(m.table.Rows()) == 0 {
+			return m, tea.Quit
+		}
 
+		// execute command
 		switch msg.String() {
-
 		case "ctrl+c", "q":
 			return m, tea.Quit
-
 		case "ctrl+m", "ctrl+j", "enter", " ":
-			return m.updateRow()
+			return m.update()
 		}
 	}
 
+	// handle undefined key input
 	var cmd tea.Cmd
 	m.table, cmd = m.table.Update(msg)
 	return m, cmd
@@ -114,6 +138,18 @@ func (m model) updateColumnWidths(availableWidth int) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) update() (tea.Model, tea.Cmd) {
+	r := m.table.SelectedRow()
+	path := r[1]
+	if _, ok := m.selected[path]; ok {
+		delete(m.selected, path)
+	} else {
+		m.selected[path] = struct{}{}
+	}
+
+	return m.updateRow()
+}
+
 func (m model) updateRow() (tea.Model, tea.Cmd) {
 	// toggle mark of selected raw
 	r := m.table.SelectedRow()
@@ -131,7 +167,20 @@ func (m model) updateRow() (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	return baseStyle.Render(m.table.View()) + "\n"
+	if len(m.table.Rows()) == 0 {
+		return "no history\nType any button to quit.\n"
+	}
+
+	var b strings.Builder
+	b.WriteString(baseStyle.Render(m.table.View()) + "\n\n")
+
+	b.WriteString("Selected files:\n")
+
+	for path := range m.selected {
+		b.WriteString(path + "\n")
+	}
+
+	return b.String()
 }
 
 func Restore(files []RemovedFile) error {
