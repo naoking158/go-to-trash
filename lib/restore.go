@@ -175,7 +175,7 @@ func (m model) View() string {
 
 	for i, f := range selected {
 		b.WriteString(
-			fmt.Sprintf("%v. %v → %v\n", i, f.To, f.From),
+			fmt.Sprintf("%v. %v → %v\n", i, MapHomeToTilde(f.To), MapHomeToTilde(f.From)),
 		)
 	}
 
