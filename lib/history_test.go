@@ -21,16 +21,16 @@ func createDummyFile(t *testing.T, path string) {
 }
 
 // helper: 履歴ファイルの各行をパースしてエントリリストを返す
-func readHistoryFile(t *testing.T, path string) []lib.RemovedFile {
+func readHistoryFile(t *testing.T, path string) []lib.ToBeMovedFile {
 	t.Helper()
 	f, err := os.Open(path)
 	assert.NoError(t, err)
 	defer f.Close()
 
-	var entries []lib.RemovedFile
+	var entries []lib.ToBeMovedFile
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		var entry lib.RemovedFile
+		var entry lib.ToBeMovedFile
 		err := json.Unmarshal(scanner.Bytes(), &entry)
 		if err == nil {
 			entries = append(entries, entry)
@@ -48,11 +48,11 @@ func TestUpdateHistory_NewFile(t *testing.T) {
 	// 履歴ファイルはまだ存在しない
 
 	// 新規エントリを2件作成
-	entry1 := lib.RemovedFile{
+	entry1 := lib.ToBeMovedFile{
 		From: "/source/path/file1.txt",
 		To:   filepath.Join(trashDir, "trash1.txt"),
 	}
-	entry2 := lib.RemovedFile{
+	entry2 := lib.ToBeMovedFile{
 		From: "/source/path/file2.txt",
 		To:   filepath.Join(trashDir, "trash2.txt"),
 	}
@@ -61,7 +61,7 @@ func TestUpdateHistory_NewFile(t *testing.T) {
 	createDummyFile(t, entry2.To)
 
 	hist := lib.NewHistory(historyPath, nil)
-	err := hist.UpdateHistory([]lib.RemovedFile{entry1, entry2})
+	err := hist.UpdateHistory([]lib.ToBeMovedFile{entry1, entry2})
 	assert.NoError(t, err)
 
 	// 履歴ファイルが作成され、2件のエントリが書き込まれていることを確認
@@ -77,7 +77,7 @@ func TestUpdateHistory_Append(t *testing.T) {
 	historyPath := filepath.Join(trashDir, lib.HistoryFileName)
 
 	// 初期エントリを1件作成
-	initialEntry := lib.RemovedFile{
+	initialEntry := lib.ToBeMovedFile{
 		From: "/source/path/initial.txt",
 		To:   filepath.Join(trashDir, "trash_initial.txt"),
 	}
@@ -104,14 +104,14 @@ func TestUpdateHistory_Append(t *testing.T) {
 	assert.Len(t, hist.Files, 1)
 
 	// 新規エントリを作成
-	newEntry := lib.RemovedFile{
+	newEntry := lib.ToBeMovedFile{
 		From: "/source/path/new.txt",
 		To:   filepath.Join(trashDir, "trash_new.txt"),
 	}
 	createDummyFile(t, newEntry.To)
 
 	// UpdateHistory で新規エントリを追記
-	err = hist.UpdateHistory([]lib.RemovedFile{newEntry})
+	err = hist.UpdateHistory([]lib.ToBeMovedFile{newEntry})
 	assert.NoError(t, err)
 
 	// 履歴ファイルの中身を確認（初期エントリ + 新規エントリの合計2件）
@@ -127,11 +127,11 @@ func TestUpdateHistory_Sync(t *testing.T) {
 	historyPath := filepath.Join(trashDir, lib.HistoryFileName)
 
 	// 有効なエントリと無効なエントリを用意する
-	validEntry := lib.RemovedFile{
+	validEntry := lib.ToBeMovedFile{
 		From: "/source/path/valid.txt",
 		To:   filepath.Join(trashDir, "trash_valid.txt"),
 	}
-	invalidEntry := lib.RemovedFile{
+	invalidEntry := lib.ToBeMovedFile{
 		From: "/source/path/invalid.txt",
 		To:   filepath.Join(trashDir, "trash_invalid.txt"),
 	}
@@ -143,7 +143,7 @@ func TestUpdateHistory_Sync(t *testing.T) {
 		f, err := os.OpenFile(historyPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		assert.NoError(t, err)
 		writer := bufio.NewWriter(f)
-		for _, entry := range []lib.RemovedFile{validEntry, invalidEntry} {
+		for _, entry := range []lib.ToBeMovedFile{validEntry, invalidEntry} {
 			data, err := json.Marshal(entry)
 			assert.NoError(t, err)
 			_, err = writer.Write(append(data, '\n'))
@@ -160,7 +160,7 @@ func TestUpdateHistory_Sync(t *testing.T) {
 	assert.Len(t, hist.Files, 2)
 
 	// UpdateHistory に新規エントリは渡さず、syncHistory の効果を確認する
-	err = hist.UpdateHistory([]lib.RemovedFile{})
+	err = hist.UpdateHistory([]lib.ToBeMovedFile{})
 	assert.NoError(t, err)
 	// UpdateHistory 内で syncHistory が実行されるので、invalidEntry が除かれる
 	assert.Len(t, hist.Files, 1)
@@ -174,7 +174,7 @@ func TestUpdateHistory_NoNewFiles(t *testing.T) {
 	historyPath := filepath.Join(trashDir, lib.HistoryFileName)
 
 	// 初期エントリを1件作成
-	entry := lib.RemovedFile{
+	entry := lib.ToBeMovedFile{
 		From: "/source/path/entry.txt",
 		To:   filepath.Join(trashDir, "trash_entry.txt"),
 	}
@@ -197,7 +197,7 @@ func TestUpdateHistory_NoNewFiles(t *testing.T) {
 	hist, err := lib.LoadHistory(trashDir)
 	assert.NoError(t, err)
 	// UpdateHistory に空のスライスを渡す
-	err = hist.UpdateHistory([]lib.RemovedFile{})
+	err = hist.UpdateHistory([]lib.ToBeMovedFile{})
 	assert.NoError(t, err)
 
 	// 履歴ファイルの内容は変更されず、1件のエントリが保持されているはず

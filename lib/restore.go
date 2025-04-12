@@ -17,8 +17,8 @@ var _ tea.Model = (*model)(nil)
 
 type model struct {
 	table      table.Model
-	pathToFile map[string]RemovedFile
-	selected   map[string]RemovedFile
+	pathToFile map[string]ToBeMovedFile
+	selected   map[string]ToBeMovedFile
 }
 
 const (
@@ -47,7 +47,7 @@ func newModel(files RemovedFiles) model {
 
 	rows := make([]table.Row, len(files))
 	for i, f := range files {
-		rows[i] = []string{"", MapHomeToTilde(f.To), MapHomeToTilde(f.From), MapHomeToTilde(f.RemovedAt)}
+		rows[i] = []string{"", MapHomeToTilde(f.To), MapHomeToTilde(f.From), MapHomeToTilde(f.MovedAt)}
 	}
 
 	t := table.New(
@@ -57,7 +57,7 @@ func newModel(files RemovedFiles) model {
 		table.WithHeight(7),
 	)
 
-	pathToFile := make(map[string]RemovedFile, len(files))
+	pathToFile := make(map[string]ToBeMovedFile, len(files))
 	for _, f := range files {
 		// key is unique path in trash
 		pathToFile[MapHomeToTilde(f.To)] = f
@@ -66,7 +66,7 @@ func newModel(files RemovedFiles) model {
 	return model{
 		table:      t,
 		pathToFile: pathToFile,
-		selected:   make(map[string]RemovedFile),
+		selected:   make(map[string]ToBeMovedFile),
 	}
 }
 
@@ -85,10 +85,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// execute command
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c", "ctrl+g", "q":
 			return m, tea.Quit
 		case "ctrl+m", "ctrl+j", "enter", " ":
 			return m.update()
+		case "X":
+			return m.restore()
 		}
 	}
 
@@ -157,10 +159,21 @@ func (m model) updateRow() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) restore() (tea.Model, tea.Cmd) {
+	if len(m.selected) == 0 {
+		return nil, nil
+	}
+
+	// restore marked files
+	
+}
+
 func (m model) View() string {
 	var b strings.Builder
-	b.WriteString(baseStyle.Render(m.table.View()) + "\n\n")
 
+	b.WriteString("\n[space/enter: toggle mark, X: restore marked files, q/Ctrl+c/Ctrl+g: quit]\n\n")
+	b.WriteString(baseStyle.Render(m.table.View()) + "\n\n")
+	
 	if len(m.selected) == 0 {
 		return b.String()
 	}
@@ -175,14 +188,14 @@ func (m model) View() string {
 
 	for i, f := range selected {
 		b.WriteString(
-			fmt.Sprintf("%v. %v → %v\n", i, MapHomeToTilde(f.To), MapHomeToTilde(f.From)),
+			fmt.Sprintf("%v. %v → %v\n", i+1, MapHomeToTilde(f.To), MapHomeToTilde(f.From)),
 		)
 	}
 
 	return b.String()
 }
 
-func Restore(files []RemovedFile) error {
+func Restore(files []ToBeMovedFile) error {
 	if len(files) == 0 {
 		fmt.Println("quit due to no history")
 		return nil

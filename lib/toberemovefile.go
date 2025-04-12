@@ -9,13 +9,14 @@ import (
 	"time"
 )
 
-type RemovedFile struct {
+type ToBeMovedFile struct {
 	From      string `json:"from"`
 	To        string `json:"to"`
-	RemovedAt string `json:"removed_at"`
+	MovedAt string `json:"moved_at"`
 }
 
-func NewToBeRemoveFile(file File, trashDir string) *RemovedFile {
+func NewToBeMovedFile(file File,
+	trashDir string) *ToBeMovedFile {
 	to := filepath.Join(trashDir, file.Name)
 
 	// check file duplication
@@ -33,19 +34,19 @@ func NewToBeRemoveFile(file File, trashDir string) *RemovedFile {
 		)
 	}
 
-	return &RemovedFile{
+	return &ToBeMovedFile{
 		From:      file.Path,
 		To:        to,
-		RemovedAt: file.Timestamp.Format("2006-01-02 15:04:05"),
+		MovedAt: file.Timestamp.Format("2006-01-02 15:04:05"),
 	}
 }
 
-type RemovedFiles []RemovedFile
+type RemovedFiles []ToBeMovedFile
 
 func (files RemovedFiles) Sorted() RemovedFiles {
-	slices.SortFunc(files, func(a RemovedFile, b RemovedFile) int {
-		aTime, _ := time.Parse(time.DateTime, a.RemovedAt)
-		bTime, _ := time.Parse(time.DateTime, b.RemovedAt)
+	slices.SortFunc(files, func(a ToBeMovedFile, b ToBeMovedFile) int {
+		aTime, _ := time.Parse(time.DateTime, a.MovedAt)
+		bTime, _ := time.Parse(time.DateTime, b.MovedAt)
 
 		if aTime.Before(bTime) {
 			return -1

@@ -92,8 +92,8 @@ func (cli *CLI) Run(args []string) int {
 	return 0
 }
 
-func (cli CLI) remove(paths []string, dryrun bool) ([]lib.RemovedFile, error) {
-	files := make([]lib.RemovedFile, len(paths))
+func (cli CLI) remove(paths []string, dryrun bool) ([]lib.ToBeMovedFile, error) {
+	files := make([]lib.ToBeMovedFile, len(paths))
 	invalidPaths := make([]string, 0)
 
 	var eg errgroup.Group
@@ -110,7 +110,7 @@ func (cli CLI) remove(paths []string, dryrun bool) ([]lib.RemovedFile, error) {
 				return errors.Wrap(err, "new file")
 			}
 
-			toBeRemoveFile := lib.NewToBeRemoveFile(*f, cli.TrashDir)
+			toBeRemoveFile := lib.NewToBeMovedFile(*f, cli.TrashDir)
 
 			if dryrun {
 				fmt.Fprintf(cli.Stdout, "[DRYRUN] move `%v` to `%v`\n", toBeRemoveFile.From, toBeRemoveFile.To)
