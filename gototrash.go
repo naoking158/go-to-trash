@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"path/filepath"
 
-	"github.com/cockroachdb/errors"
 	"github.com/naoking158/go-to-trash/lib"
-	"golang.org/x/sync/errgroup"
 )
 
 const Name = "gototrash"
@@ -67,7 +64,7 @@ func (cli *CLI) Run(args []string) int {
 	}
 
 	if restore {
-		if err := lib.Restore(history.Files); err != nil {
+		if err := lib.Restore(history.Entries); err != nil {
 			log.Println(err)
 			fmt.Fprintf(cli.Stderr, "there's been an error: %v", err)
 			return 1
@@ -83,7 +80,11 @@ func (cli *CLI) Run(args []string) int {
 		return 1
 	}
 
-	if err := history.UpdateHistory(removedFiles); err != nil {
+	for _, f := range removedFiles {
+		fmt.Fprintf(cli.Stdout, "removed: %s → %s\n", f.From, f.To)
+	}
+
+	if err := history.UpdateHistory(lib.NewHistoryEntriesFromMovedFiles(removedFiles)); err != nil {
 		log.Println(err)
 		fmt.Fprintf(cli.Stderr, "failed to update history: %v\n", err)
 		return 1
@@ -92,53 +93,25 @@ func (cli *CLI) Run(args []string) int {
 	return 0
 }
 
-func (cli CLI) remove(paths []string, dryrun bool) ([]lib.ToBeMovedFile, error) {
-	files := make([]lib.ToBeMovedFile, len(paths))
-	invalidPaths := make([]string, 0)
-
-	var eg errgroup.Group
-
+func (cli *CLI) remove(paths []string, dryrun bool) ([]lib.MovedFile, error) {
+	toBeMovedFiles := make(lib.ToBeMovedFiles, len(paths))
 	for i, path := range paths {
-		eg.Go(func() error {
-			f, err := lib.NewFile(path)
-			if err != nil {
-				if errors.Is(err, lib.ErrFileNotFound) {
-					fmt.Fprintf(cli.Stderr, "file not found: %v\n", path)
-				}
+		from, err := lib.ValidatePath(path)
+		if err != nil {
+			log.Println(err)
+			fmt.Fprintf(cli.Stderr, "failed to validate path: %v\n", err)
+			return nil, fmt.Errorf("failed to validate path: %w", err)
+		}
 
-				invalidPaths = append(invalidPaths, path)
-				return errors.Wrap(err, "new file")
-			}
+		to := filepath.Join(cli.TrashDir, filepath.Base(path))
 
-			toBeRemoveFile := lib.NewToBeMovedFile(*f, cli.TrashDir)
-
-			if dryrun {
-				fmt.Fprintf(cli.Stdout, "[DRYRUN] move `%v` to `%v`\n", toBeRemoveFile.From, toBeRemoveFile.To)
-				return nil
-			}
-
-			// makedirs
-			if err := os.MkdirAll(filepath.Dir(toBeRemoveFile.To), 0777); err != nil {
-				invalidPaths = append(invalidPaths, path)
-				return errors.Wrap(err, "mkdirall")
-			}
-
-			// rename file
-			if err := os.Rename(toBeRemoveFile.From, toBeRemoveFile.To); err != nil {
-				invalidPaths = append(invalidPaths, path)
-				return errors.Wrap(err, "os.rename")
-			}
-
-			fmt.Fprintf(cli.Stdout, "move `%v` to `%v`\n", toBeRemoveFile.From, toBeRemoveFile.To)
-
-			files[i] = *toBeRemoveFile
-			return nil
-		})
+		toBeMovedFiles[i] = lib.NewToBeMovedFile(from, to)
 	}
 
-	if err := eg.Wait(); err != nil {
-		return nil, errors.Wrapf(err, "failed to remove files: %v", invalidPaths)
+	movedFiles, err := toBeMovedFiles.Move(dryrun)
+	if err != nil {
+		return nil, fmt.Errorf("failed to move files: %w", err)
 	}
 
-	return files, nil
+	return movedFiles, nil
 }

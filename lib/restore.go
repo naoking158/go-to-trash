@@ -15,10 +15,15 @@ var baseStyle = lipgloss.NewStyle().
 
 var _ tea.Model = (*model)(nil)
 
+type errMsg struct {
+	err error
+}
+
 type model struct {
 	table      table.Model
-	pathToFile map[string]ToBeMovedFile
-	selected   map[string]ToBeMovedFile
+	pathToFile map[string]HistoryEntry
+	selected   map[string]HistoryEntry
+	message    string
 }
 
 const (
@@ -42,12 +47,12 @@ var columns = []table.Column{
 	{Title: ColTitleRemovedAt, Width: ColBaseWidthForRemovedAt},
 }
 
-func newModel(files RemovedFiles) model {
-	files = files.Sorted()
+func newModel(entries HistoryEntries) model {
+	sortedEntries := entries.Sorted()
 
-	rows := make([]table.Row, len(files))
-	for i, f := range files {
-		rows[i] = []string{"", MapHomeToTilde(f.To), MapHomeToTilde(f.From), MapHomeToTilde(f.MovedAt)}
+	rows := make([]table.Row, len(sortedEntries))
+	for i, f := range sortedEntries {
+		rows[i] = []string{"", MapHomeToTilde(f.To), MapHomeToTilde(f.From), f.Removed.String()}
 	}
 
 	t := table.New(
@@ -57,16 +62,16 @@ func newModel(files RemovedFiles) model {
 		table.WithHeight(7),
 	)
 
-	pathToFile := make(map[string]ToBeMovedFile, len(files))
-	for _, f := range files {
+	pathToFile := make(map[string]HistoryEntry, len(sortedEntries))
+	for _, e := range sortedEntries {
 		// key is unique path in trash
-		pathToFile[MapHomeToTilde(f.To)] = f
+		pathToFile[MapHomeToTilde(e.To)] = e
 	}
 
 	return model{
 		table:      t,
 		pathToFile: pathToFile,
-		selected:   make(map[string]ToBeMovedFile),
+		selected:   make(map[string]HistoryEntry),
 	}
 }
 
@@ -165,20 +170,51 @@ func (m model) restore() (tea.Model, tea.Cmd) {
 	}
 
 	// restore marked files
-	
+	ToBeMovedFiles := make(ToBeMovedFiles, 0, len(m.selected))
+	for _, entry := range m.selected {
+		// invert `from` and `to` for restore
+		ToBeMovedFiles = append(ToBeMovedFiles, NewToBeMovedFile(entry.To, entry.From))
+	}
+
+	movedFiles, err := ToBeMovedFiles.Move(false)
+	if err != nil {
+		return nil, func() tea.Msg {
+			return errMsg{err: err}
+		}
+	}
+
+	for _, f := range movedFiles {
+		m.message += fmt.Sprintf("restored: %s → %s\n", MapHomeToTilde(f.From), MapHomeToTilde(f.To))
+	}
+
+	return m, tea.Quit
 }
 
 func (m model) View() string {
 	var b strings.Builder
 
-	b.WriteString("\n[space/enter: toggle mark, X: restore marked files, q/Ctrl+c/Ctrl+g: quit]\n\n")
+	helpStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.AdaptiveColor{
+			Light: "#444444",
+			Dark:  "#CCCCCC",
+		})
+
+	helpText := helpStyle.Render(`
+[Keys]
+  space / enter       : Toggle mark
+  X                   : Restore marked files
+  q / Ctrl+C / Ctrl+G : Quit
+`)
+
+	b.WriteString(helpText + "\n")
 	b.WriteString(baseStyle.Render(m.table.View()) + "\n\n")
-	
+
 	if len(m.selected) == 0 {
 		return b.String()
 	}
 
-	selected := make(RemovedFiles, 0, len(m.selected))
+	selected := make(HistoryEntries, 0, len(m.selected))
 	for _, v := range m.selected {
 		selected = append(selected, v)
 	}
@@ -192,16 +228,21 @@ func (m model) View() string {
 		)
 	}
 
+	if m.message != "" {
+		b.WriteString("\n")
+		b.WriteString(m.message)
+	}
+
 	return b.String()
 }
 
-func Restore(files []ToBeMovedFile) error {
-	if len(files) == 0 {
+func Restore(historyEntries []HistoryEntry) error {
+	if len(historyEntries) == 0 {
 		fmt.Println("quit due to no history")
 		return nil
 	}
 
-	p := tea.NewProgram(newModel(files))
+	p := tea.NewProgram(newModel(historyEntries))
 	if _, err := p.Run(); err != nil {
 		return err
 	}

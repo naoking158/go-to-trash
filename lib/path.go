@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cockroachdb/errors"
 )
 
 func NormalizePath(path string) (string, error) {
@@ -34,4 +36,18 @@ func Home() string {
 		home = os.Getenv("USERPROFILE")
 	}
 	return home
+}
+
+func ValidatePath(path string) (string, error) {
+	normPath, err := NormalizePath(path)
+	if err != nil {
+		return "", errors.Wrapf(errors.Join(err, ErrFileInternal), "normalize path: %v", path)
+	}
+
+	// check path existance
+	if _, err := os.Stat(normPath); err != nil {
+		return "", errors.Wrap(errors.Join(err, ErrFileNotFound), "os stat")
+	}
+
+	return normPath, nil
 }
