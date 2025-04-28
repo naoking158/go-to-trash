@@ -45,7 +45,7 @@ func (cli *CLI) Run(args []string) int {
 	// Parse flags
 	if err := flags.Parse(args[1:]); err != nil {
 		// -h/-help などでヘルプが要求された場合は正常終了扱いにする
-		if err == flag.ErrHelp {
+		if err == pflag.ErrHelp {
 			return 0
 		}
 		fmt.Fprintf(cli.Stderr, "failed to parse flags: %v\n", err)
