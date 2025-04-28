@@ -1,11 +1,12 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"log"
 	"path/filepath"
+
+	"github.com/spf13/pflag"
 
 	"github.com/naoking158/go-to-trash/lib"
 )
@@ -25,20 +26,28 @@ func (cli *CLI) Run(args []string) int {
 		restore bool
 	)
 
-	flags := flag.NewFlagSet(Name, flag.ContinueOnError)
+	// pflag FlagSet (GNU 互換)。未定義フラグは黙って無視する
+	flags := pflag.NewFlagSet(Name, pflag.ContinueOnError)
+	flags.ParseErrorsWhitelist.UnknownFlags = true
 	flags.SetOutput(cli.Stderr)
 
-	flags.BoolVar(&dryrun, "dryrun", false, "no execute, just show what would be done")
-	flags.BoolVar(&dryrun, "n", false, "alias for --dryrun")
-
-	flags.BoolVar(&verbose, "verbose", false, "show verbose output")
-	flags.BoolVar(&verbose, "v", false, "alias for --verbose")
-
+	// 本来の CLI フラグ
+	flags.BoolVarP(&dryrun, "dryrun", "n", false, "no execute, just show what would be done")
+	flags.BoolVarP(&verbose, "verbose", "v", false, "show verbose output")
 	flags.BoolVar(&restore, "restore", false, "restore files from trash")
+
+	// rm 互換（動作には使わない）
+	var dummy bool
+	flags.BoolVarP(&dummy, "recursive", "r", false, "rm compatibility (ignored)")
+	flags.BoolVarP(&dummy, "force", "f", false, "rm compatibility (ignored)")
+	flags.BoolVarP(&dummy, "Recursive", "R", false, "rm compatibility (ignored)")
 
 	// Parse flags
 	if err := flags.Parse(args[1:]); err != nil {
-		// TODO: define exit code and use it
+		// -h/-help などでヘルプが要求された場合は正常終了扱いにする
+		if err == flag.ErrHelp {
+			return 0
+		}
 		fmt.Fprintf(cli.Stderr, "failed to parse flags: %v\n", err)
 		return 1
 	}
@@ -69,7 +78,6 @@ func (cli *CLI) Run(args []string) int {
 			fmt.Fprintf(cli.Stderr, "there's been an error: %v", err)
 			return 1
 		}
-
 		return 0
 	}
 
